@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'VeloStock PWA',
-        short_name: 'VeloStock',
+        name: 'CLVC Équipements',
+        short_name: 'CLVC Stock',
         description: 'Gestion et commande d\'équipements de cyclisme',
         theme_color: '#0f172a',
         background_color: '#0f172a',
