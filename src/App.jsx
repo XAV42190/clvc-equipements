@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { INITIAL_PRODUCTS } from './data/mockData';
 
 // Composant SVG du logo officiel CLVC (Vectoriel ajusté)
@@ -54,11 +54,36 @@ function LogoCLVC({ className = "w-10 h-10" }) {
 }
 
 export default function App() {
-  const [products, setProducts] = useState(INITIAL_PRODUCTS);
+  // PERSISTENCE LOCALSTORAGE POUR LES PRODUITS, COMMANDES ET DEMANDES
+  const [products, setProducts] = useState(() => {
+    const saved = localStorage.getItem('clvc_products');
+    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+  });
+
+  const [orders, setOrders] = useState(() => {
+    const saved = localStorage.getItem('clvc_orders');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [restockRequests, setRestockRequests] = useState(() => {
+    const saved = localStorage.getItem('clvc_restocks');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('clvc_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('clvc_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('clvc_restocks', JSON.stringify(restockRequests));
+  }, [restockRequests]);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [cart, setCart] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [restockRequests, setRestockRequests] = useState([]);
 
   // SÉCURITÉ ADMIN
   const ADMIN_PASSWORD = "velo2026"; // 🔑 Mot de passe d'accès admin
@@ -203,6 +228,18 @@ export default function App() {
   };
 
   // --- ACTIONS GESTIONNAIRE / ADMIN ---
+  const handleUpdateOrderStatus = (orderId, newStatus) => {
+    setOrders(orders.map(order => 
+      order.id === orderId ? { ...order, status: newStatus } : order
+    ));
+  };
+
+  const handleDeleteOrder = (orderId) => {
+    if (window.confirm("Voulez-vous vraiment supprimer cette commande de l'historique ?")) {
+      setOrders(orders.filter(order => order.id !== orderId));
+    }
+  };
+
   const updateStockAndPrice = (productId, size, field, value) => {
     setProducts(products.map(prod => {
       if (prod.id === productId) {
@@ -327,6 +364,98 @@ export default function App() {
         {/* VIEW: ESPACE ADMIN (GESTIONNAIRE) */}
         {isAdmin ? (
           <div className="space-y-10">
+            
+            {/* SECTIONS COMMANDES CLIENTS (ESPACE ADMIN) */}
+            <section className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-emerald-400 flex items-center gap-2">
+                  <span>🛒</span> Commandes reçues ({orders.length})
+                </h2>
+                <span className="text-xs text-slate-400">
+                  {orders.filter(o => o.status === 'En attente de virement').length} en attente
+                </span>
+              </div>
+
+              {orders.length === 0 ? (
+                <div className="text-center py-8 bg-slate-900/50 rounded-xl border border-slate-800">
+                  <span className="text-3xl block mb-2">📭</span>
+                  <p className="text-slate-400 text-sm">Aucune commande enregistrée pour le moment.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map(order => (
+                    <div key={order.id} className="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-3">
+                      
+                      {/* En-tête commande */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-mono font-bold text-cyan-400">{order.id}</span>
+                            <span className="text-xs text-slate-400">• {order.date}</span>
+                          </div>
+                          <div className="text-xs text-slate-300 font-semibold mt-0.5">
+                            Client : <span className="text-white">{order.client.name}</span> ({order.client.email})
+                          </div>
+                        </div>
+
+                        {/* Badge statut */}
+                        <div className="flex items-center space-x-2">
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                            order.status === 'Expédiée'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : order.status === 'Validée'
+                              ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                              : 'bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse'
+                          }`}>
+                            {order.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Liste des articles commandés */}
+                      <div className="space-y-1.5 bg-slate-950/60 p-3 rounded-lg text-xs">
+                        <span className="text-slate-400 font-semibold block mb-1">Articles :</span>
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-slate-300">
+                            <span>• {item.name} (Taille : <strong className="text-cyan-400">{item.size}</strong>) x{item.qty}</span>
+                            <span className="font-mono text-slate-400">{item.price * item.qty} €</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-bold text-sm text-white pt-2 border-t border-slate-800 mt-2">
+                          <span>Total commande :</span>
+                          <span className="text-cyan-400 font-mono">{order.total} €</span>
+                        </div>
+                      </div>
+
+                      {/* Actions d'administration */}
+                      <div className="flex flex-wrap justify-between items-center gap-2 pt-1">
+                        <div className="flex items-center space-x-2">
+                          <label className="text-xs text-slate-400 font-semibold">Changer statut :</label>
+                          <select
+                            value={order.status}
+                            onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                            className="bg-slate-950 border border-slate-700 text-xs text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
+                          >
+                            <option value="En attente de virement">⏳ En attente de virement</option>
+                            <option value="Validée">✅ Paiement reçu (Validée)</option>
+                            <option value="Expédiée">📦 Expédiée</option>
+                          </select>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteOrder(order.id)}
+                          className="text-rose-400 hover:text-rose-300 text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg border border-rose-500/20 transition"
+                        >
+                          🗑️ Effacer
+                        </button>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             {/* Formulaire d'ajout d'équipement */}
             <section className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
               <h2 className="text-lg font-bold mb-4 text-cyan-400 flex items-center gap-2">
